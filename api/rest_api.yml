@@ -1,0 +1,629 @@
+openapi: 3.1.0
+info:
+  title: Travelers Social Network Wayfarer API
+  description: API for social network dedicated to travelers
+  version: 1.0.0
+  contact:
+    name: WayfarerTeam
+    url: https://wayfarer.com
+    email: support@wayfarer.com
+servers:
+  - url: https://api.wayfarer.com/v1
+    description: Production server
+  - url: https://staging-api.wayfarer.com/v1
+    description: Staging server
+
+tags:
+  - name: Posts
+    description: All about posts
+  - name: Comments
+    description: All about comments to posts
+  - name: Rating
+    description: All about rating of posts
+  - name: Subscriptions
+    description: All about subscribing/unsubscribing
+  - name: Places
+    description: All about places
+
+components:
+  schemas:
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440000"
+        authorId:
+          type: string
+          format: uuid
+        text:
+          type: string
+          example: "Beautiful sunset in Bali today!"
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+        location:
+          $ref: '#/components/schemas/Location'
+        score:
+          type: integer
+          example: 42
+        commentsCount:
+          type: integer
+          example: 7
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - authorId
+        - text
+        - createdAt
+
+    Photo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          example: "https://storage.travelers-network.com/photos/123.jpg"
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        location:
+          $ref: '#/components/schemas/Location'
+
+    Location:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: float
+          example: -8.409518
+        lng:
+          type: number
+          format: float
+          example: 115.188919
+        name:
+          type: string
+          example: "Uluwatu Temple, Bali"
+        verified:
+          type: boolean
+          description: Whether location was verified from photo metadata
+          example: true
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        text:
+          type: string
+          example: "Looks amazing! When was this taken?"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Rate:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    Subscription:
+      type: object
+      properties:
+        subscriberId:
+          type: string
+          format: uuid
+        targetUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    PopularPlace:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/Location'
+        postsCount:
+          type: integer
+          example: 125
+        lastPostedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+      required:
+        - code
+        - message
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+paths:
+  /posts:
+    get:
+      tags:
+        - Posts
+      summary: Get posts feed
+      description: Returns infinite scroll feed of posts from subscribed users
+      parameters:
+        - name: limit
+          in: query
+          description: Number of posts to return
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          description: Offset for pagination
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: A list of posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Post'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Posts
+      summary: Create a new post
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: post content
+                  maxLength: 5000
+                photos:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    description: photo for post
+                    required:
+                        - file
+                    properties:
+                      file:
+                        type: string
+                        format: binary
+                        description: raw photo content
+                      title:
+                        type: string
+                        description: photo title
+                        maxLength: 255              
+                locationLat:
+                  type: number
+                  format: float
+                locationLng:
+                  type: number
+                  format: float
+                locationName:
+                  type: string
+      responses:
+        '201':
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /posts/{postId}:
+    get:
+      tags:
+        - Posts
+      summary: Get post by ID
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Post details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '404':
+          description: Post not found
+
+    put:
+      tags:
+        - Posts
+      summary: Update post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                photosToDelete:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                location:
+                  $ref: '#/components/schemas/Location'
+      responses:
+        '200':
+          description: Post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '403':
+          description: Not authorized to update this post
+        '404':
+          description: Post not found
+
+    delete:
+      tags:
+        - Posts
+      summary: Delete post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Post deleted successfully
+        '403':
+          description: Not authorized to delete this post
+        '404':
+          description: Post not found
+
+  /posts/{postId}/comments:
+    get:
+      tags:
+        - Comments
+      summary: Get comments for post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '404':
+          description: Post not found
+
+    post:
+      tags:
+        - Comments
+      summary: Add comment to post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required:
+                - text
+      responses:
+        '201':
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '404':
+          description: Post not found
+
+  /comments/{commentId}:
+    put:
+      tags:
+        - Comments
+      summary: Update comment
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required:
+                - text
+      responses:
+        '200':
+          description: Comment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '403':
+          description: Not authorized to update this comment
+        '404':
+          description: Comment not found
+
+    delete:
+      tags:
+        - Comments
+      summary: Delete comment
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Comment deleted
+        '403':
+          description: Not authorized to delete this comment
+        '404':
+          description: Comment not found
+
+  /posts/{postId}/score:
+    post:
+      tags:
+        - Rating
+      summary: Rate a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score:
+                  type: integer
+                  minimum: 0
+                  maximum: 5
+      responses:
+        '201':
+          description: Post rated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rate'
+        '400':
+          description: Already rated
+        '404':
+          description: Post not found
+
+    delete:
+      tags:
+        - Rating
+      summary: Remove rate from post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Rate removed
+        '404':
+          description: Rate not found
+
+  /users/{userId}/subscribe:
+    post:
+      tags:
+        - Subscriptions
+      summary: Subscribe to user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Already subscribed or cannot subscribe to self
+        '404':
+          description: User not found
+
+    delete:
+      tags:
+        - Subscriptions
+      summary: Unsubscribe from user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Subscription removed
+        '404':
+          description: Subscription not found
+
+  /places/popular:
+    get:
+      tags:
+        - Places
+      summary: Get popular travel places
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, year, all]
+            default: month
+      responses:
+        '200':
+          description: List of popular places
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PopularPlace'
+
+  /places/{placeId}/posts:
+    get:
+      tags:
+        - Places
+      summary: Get posts for a specific place
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Can be location name or "lat,lng" string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of posts for the place
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Post'
+        '404':
+          description: Place not found
