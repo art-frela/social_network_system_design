@@ -24,6 +24,8 @@ tags:
     description: All about subscribing/unsubscribing
   - name: Places
     description: All about places
+  - name: Utils
+    description: All util methods
 
 components:
   schemas:
@@ -214,8 +216,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Post'
-        '401':
-          description: Unauthorized
+        default:
+          description: Error
           content:
             application/json:
               schema:
@@ -227,7 +229,7 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               type: object
               required:
@@ -244,12 +246,10 @@ paths:
                     type: object
                     description: photo for post
                     required:
-                        - file
+                        - photo
                     properties:
-                      file:
-                        type: string
-                        format: binary
-                        description: raw photo content
+                      photo:
+                        $ref: '#/components/schemas/Photo'
                       title:
                         type: string
                         description: photo title
@@ -269,10 +269,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Post'
-        '400':
-          description: Invalid input
-        '401':
-          description: Unauthorized
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /posts/{postId}:
     get:
@@ -293,8 +295,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Post'
-        '404':
-          description: Post not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     put:
       tags:
@@ -330,10 +336,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Post'
-        '403':
-          description: Not authorized to update this post
-        '404':
-          description: Post not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags:
@@ -349,10 +357,12 @@ paths:
       responses:
         '204':
           description: Post deleted successfully
-        '403':
-          description: Not authorized to delete this post
-        '404':
-          description: Post not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /posts/{postId}/comments:
     get:
@@ -385,8 +395,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Comment'
-        '404':
-          description: Post not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     post:
       tags:
@@ -417,8 +431,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Comment'
-        '404':
-          description: Post not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /comments/{commentId}:
     put:
@@ -450,10 +468,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Comment'
-        '403':
-          description: Not authorized to update this comment
-        '404':
-          description: Comment not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags:
@@ -469,12 +489,14 @@ paths:
       responses:
         '204':
           description: Comment deleted
-        '403':
-          description: Not authorized to delete this comment
-        '404':
-          description: Comment not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /posts/{postId}/score:
+  /posts/{postId}/scores:
     post:
       tags:
         - Rating
@@ -504,10 +526,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Rate'
-        '400':
-          description: Already rated
-        '404':
-          description: Post not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags:
@@ -523,10 +547,14 @@ paths:
       responses:
         '204':
           description: Rate removed
-        '404':
-          description: Rate not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /users/{userId}/subscribe:
+  /users/{userId}/subscribes:
     post:
       tags:
         - Subscriptions
@@ -545,11 +573,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Subscription'
-        '400':
-          description: Already subscribed or cannot subscribe to self
-        '404':
-          description: User not found
-
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /users/{userId}/subscribes/{travelerId}:
     delete:
       tags:
         - Subscriptions
@@ -561,13 +592,23 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: travelerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '204':
           description: Subscription removed
-        '404':
-          description: Subscription not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /places/popular:
+  /places:
     get:
       tags:
         - Places
@@ -593,6 +634,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PopularPlace'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /places/{placeId}/posts:
     get:
@@ -625,5 +672,46 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Post'
-        '404':
-          description: Place not found
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /uploads:
+    post:
+      tags:
+        - Utils
+      summary: Upload multiple files
+      description: Upload files and get URLs for use in other endpoints
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Files uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Photo'
+        default:
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
