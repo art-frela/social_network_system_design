@@ -24,8 +24,8 @@ tags:
     description: All about subscribing/unsubscribing
   - name: Places
     description: All about places
-  - name: Utils
-    description: All util methods
+  - name: Media
+    description: All media operation methods
 
 components:
   schemas:
@@ -554,7 +554,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /users/{userId}/subscribes:
+  /users/{userId}/subscriptions:
     post:
       tags:
         - Subscriptions
@@ -580,7 +580,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /users/{userId}/subscribes/{travelerId}:
+  /users/{userId}/subscriptions/{travelerId}:
     delete:
       tags:
         - Subscriptions
@@ -679,10 +679,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /uploads:
+  /media:
     post:
       tags:
-        - Utils
+        - Media
       summary: Upload multiple files
       description: Upload files and get URLs for use in other endpoints
       requestBody:
