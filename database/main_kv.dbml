@@ -1,0 +1,9 @@
+// Key-value хранилище с UUID ключами и числовыми значениями
+// для хранения аггрегированных значений по средним оценкам постов
+Table kv_storage {
+  post_id    uuid [pk] // 16Byte, key - post identifier
+  avg_score  real // 8Byte, value - post avg score
+  updated_at timestamp [default: `now()`] //  8Byte, Опционально: время последнего обновления
+}
+
+// 1 rec = 32Byte

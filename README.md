@@ -2,6 +2,15 @@
 
 > Социальная сеть для путешественников - **Wayfarer**
 
+- [SYSTEM DESIGN социальной сети для курса по системному дизайну balun.courses.system-design](#system-design-социальной-сети-для-курса-по-системному-дизайну-baluncoursessystem-design)
+  - [Функциональные требования](#функциональные-требования)
+  - [Нефункциональные требования](#нефункциональные-требования)
+  - [Расчет нагрузки](#расчет-нагрузки)
+  - [Модель данных и расчет дисков](#модель-данных-и-расчет-дисков)
+    - [Сущности](#сущности)
+    - [Расчет дисков](#расчет-дисков)
+
+
 ![logo](assets/img/logo_orig.jpg)
 
 
@@ -85,3 +94,49 @@ dau = 10000000
 | Удаление комментариев                  | 0                          |                    |                            |                                                                                                                                                                                                                                |
 | Подписка                               | 10_000_000*0.1/86400 \~ 12 | 12*16B = 192B      |                            |                                                                                                                                                                                                                                |
 | Отписка                                | 10_000_000*0.03/86400 \~ 4 | 4*16B = 64B        |                            |                                                                                                                                                                                                                                |
+## Модель данных и расчет дисков
+
+### Сущности
+
+| Сущность\таблица   | Таблица        | Тип БД            | Описание схемы                                     | Размер 1 записи + Индексы + выравнивание (только PK) \~[Byte] | Число записей в год | Прирост в год | Операций в секунду (I/O) | Интенсивность трафика |
+| ------------------ | -------------- | ----------------- | -------------------------------------------------- | ------------------------------------------------------------- | ------------------- | ------------- | ------------------------ | --------------------- |
+| Пользователи       | users          | RDBMS             | [database/main_rdms.dbml](database/main_rdms.dbml) | 137+40                                                        | 10000000            | 1,77GB        | 12                       | 2124Bps               |
+| Подписки           | subscriptions  | RDBMS             | [database/main_rdms.dbml](database/main_rdms.dbml) | 40+40                                                         | 252288000           | 20,18GB       | 16                       | 1280Bps               |
+| Локации            | locations      | RDBMS             | [database/main_rdms.dbml](database/main_rdms.dbml) | 81+40                                                         | 2000000             | 0,25GB        | 2                        | 242Bps                |
+| Посты              | posts          | RDBMS             | [database/main_rdms.dbml](database/main_rdms.dbml) | 2824+40                                                       | 378432000           | 1084GB        | 12                       | 34368Bps              |
+| Комментарии        | posts_comments | RDBMS             | [database/main_rdms.dbml](database/main_rdms.dbml) | 616+40                                                        | 7568640000          | 4965GB        | 240                      | 157440Bps             |
+| Оценки             | posts_scores   | RDBMS             | [database/main_rdms.dbml](database/main_rdms.dbml) | 42+40                                                         | 1135296000          | 93,1Gb        | 36                       | 2952Bps               |
+| Фотографии         |                | Object storage    | [database/main_blob.dbml](database/main_blob.dbml) | *512016*                                                      | 1892160000          | 969816GB      | 180                      | 92MBps                |
+| Группировка оценок |                | Key-Value Storage | [database/main_kv.dbml](database/main_kv.dbml)     | 32                                                            | 378432000           | 12,1GB        | 120                      | 3840Bps               |
+
+| БД                | Объем данных/год (Capacity) | Операций в секунду | Интенсивность трафика (**traffic_per_second**) |
+| ----------------- | --------------------------- | ------------------ | ---------------------------------------------- |
+| RDBMS             | 6164,3GB→6,2TB              | 318                | 198406Bps                                      |
+| Object storage    | 969816GB→970TB              | 180                | 92MBps                                         |
+| Key-Value Storage | 12,1GB                      | 120                | 3840Bps→0,004MBps                              |
+
+
+### Расчет дисков
+
+```javascript
+Disks_for_capacity = capacity / disk_capacity
+Disks_for_throughput = traffic_per_second / disk_throughput
+Disks_for_iops = iops / disk_iops
+Disks = max(ceil(Disks_for_capacity), ceil(Disks_for_throughput), ceil(Disks_for_iops))
+```
+
+Где:  
+**disk_capacity** - объем одного диска  
+**capacity** - суммарный объем данных, которое необходимо хранить  
+**traffic_per_second** - суммарный трафик на запись/чтение в секунду  
+**disk_throughput** - пропускная способность одного диска  
+**iops** - суммарное количество запросов в секунду  
+**disk_iops** - количество операций ввода-вывод диска в секунду  
+**ceil** - функция округления вверх до целого числа
+
+| хар-ка\БД            | RDBMS                   | Object storage      | Key-Value Storage        |
+| -------------------- | ----------------------- | ------------------- | ------------------------ |
+| disks_for_capacity   | 6,2TB/2TB=3,1           | 970TB/20TB=48,5     | 12,1GB/128GB=0,94        |
+| disks_for_throughput | 0,2MBps/100MBps = 0,002 | 92MBps/100MBps=0,92 | 0,004MBps/100MBps = 4e-5 |
+| disks_for_iops       | 318/100=3,18            | 180/100=1,8         | 120/100=1,2              |
+| DISKS                | 4                       | 49                  | 2                        |

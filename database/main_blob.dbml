@@ -1,0 +1,8 @@
+// Object хранилище фотографий
+Table blob_storage {
+  object_id   text [pk] // 8Byte
+  content     _byte     // 512KByte
+  updated_at  timestamp [default: `now()`] // 8Byte, Опционально: время последнего обновления
+}
+
+// 1 rec - 512016Byte
