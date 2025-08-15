@@ -125,7 +125,7 @@ Disks_for_iops = iops / disk_iops
 Disks = max(ceil(Disks_for_capacity), ceil(Disks_for_throughput), ceil(Disks_for_iops))
 ```
 
-Где:
+Где:  
 **disk_capacity** - объем одного диска  
 **capacity** - суммарный объем данных, которое необходимо хранить  
 **traffic_per_second** - суммарный трафик на запись/чтение в секунду  
