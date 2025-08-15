@@ -1,0 +1,74 @@
+// users - store simple user profiles
+Table users {
+    id      uuid [pk]               // 16Byte
+    name            varchar(255)    // avg 48Byte
+    phone_number    varchar(16)     // 65Byte
+    created_at      timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 137Byte'
+}
+
+// subscriptions - store subscriptions
+Table subscriptions {
+    subscriber_id  uuid [pk]  // 16Byte
+    target_user_id uuid [pk]  // 16Byte
+    created_at timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 40Byte'
+}
+
+Ref: users.id < subscriptions.subscriber_id
+Ref: users.id < subscriptions.target_user_id
+
+// locations - reference of the intresting places
+Table locations {
+    id          uuid [pk]    // 16Byte
+    name        varchar(255) // avg 48Byte
+    lat         float8       // 8Byte
+    lng         float8       // 8Byte
+    verified    bool         // 1Byte
+    Note: '1 rec = 81Byte'
+}
+
+// posts - store users's posts
+Table posts {
+    id              uuid [pk]                    // 16Byte
+    author_id       uuid                         // 16Byte
+    location_id     uuid                         // 16Byte
+    location_name   varchar(255)                 // avg 48Byte
+    content         varchar(5000)                // avg 2720Byte
+    created_at      timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 2824Byte'
+}
+
+Ref: users.id < posts.author_id
+Ref: locations.id < posts.location_id
+
+// posts_comments - store users's posts's comments
+Table posts_comments {
+    id uuid [pk]                            // 16Byte
+    post_id uuid                            // 16Byte
+    author_id uuid                          // 16Byte
+    content varchar(800)                    // 560Byte
+    created_at timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 616Byte'
+}
+
+Ref: users.id < post_comments.author_id
+Ref: posts.id < post_comments.post_id
+
+// posts_scores - store post's rates
+Table posts_scores {
+    post_id uuid // 16Byte
+    user_id uuid // 16Byte
+    score   int2 // 2Byte
+    created_at timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 42Byte'
+}
+
+Ref: users.id < posts_scores.user_id
+Ref: posts.id < posts_scores.post_id
+
+TableGroup posts {
+  posts
+  posts_scores
+  post_comments
+}
