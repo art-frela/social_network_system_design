@@ -1,5 +1,7 @@
 # SYSTEM DESIGN социальной сети для курса по системному дизайну [balun.courses.system-design](https://balun.courses/courses/system_design)
 
+> Социальная сеть для путешественников - **Wayfarer**
+
 ![logo](assets/img/logo_orig.jpg)
 
 
