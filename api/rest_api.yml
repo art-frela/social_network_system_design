@@ -23,7 +23,9 @@ tags:
   - name: Subscriptions
     description: All about subscribing/unsubscribing
   - name: Places
-    description: All about places
+    description: All about places that may or may not be tied to a physical location. For example, the virtual world.
+  - name: Locations
+    description: All about physical locations on the planet that have geographic coordinates
   - name: Media
     description: All media operation methods
 
@@ -46,8 +48,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Photo'
-        location:
-          $ref: '#/components/schemas/Location'
+        locationId:
+          $ref: '#/components/schemas/locationId'
         score:
           type: integer
           example: 42
@@ -72,37 +74,43 @@ components:
         id:
           type: string
           format: uuid
-        url:
+        link:
           type: string
           format: uri
           example: "https://storage.travelers-network.com/photos/123.jpg"
-        width:
-          type: integer
-          example: 1920
-        height:
-          type: integer
-          example: 1080
         location:
           $ref: '#/components/schemas/Location'
+          description: Goe binding to location
+        place:
+          $ref: '#/components/schemas/Place'
+          description: Binding to the location at the time of creation
+
+    Place:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Place database identifier
+        title:
+          type: string
+          description: place name
+        description:
+          type: string
+          description: place description
+        currentLocationId:
+          $ref: '#/components/schemas/locationId'
+          description: location at the current moment in time
 
     Location:
       type: object
       properties:
-        lat:
-          type: number
-          format: float
-          example: -8.409518
-        lng:
-          type: number
-          format: float
-          example: 115.188919
-        name:
+        id:
+          $ref: '#/components/schemas/locationId'
+        comment:
           type: string
-          example: "Uluwatu Temple, Bali"
-        verified:
-          type: boolean
-          description: Whether location was verified from photo metadata
-          example: true
+          maxLength: 255
+          example: Uluwatu Temple, Bali
 
     Comment:
       type: object
@@ -155,14 +163,38 @@ components:
     PopularPlace:
       type: object
       properties:
-        location:
-          $ref: '#/components/schemas/Location'
+        place:
+          $ref: '#/components/schemas/Place'
         postsCount:
           type: integer
           example: 125
         lastPostedAt:
           type: string
           format: date-time
+
+    locationId:
+      type: string
+      pattern: '^[23456789CDFGHJMPQRVWX]{2,8}(\+[23456789CDFGHJMPQRVWX]{0,7})?$'
+      example: "8FWC2345+GG"
+      description: "Open Location Code as identifier"
+    PlaceWithDistance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Place database identifier
+        title:
+          type: string
+          description: place name
+        distance:
+          type: number
+          format: float
+          description: distance from the locationId in kilometers
+      required:
+        - id
+        - title
+        - distance
 
     Error:
       type: object
@@ -188,6 +220,7 @@ security:
 paths:
   /posts:
     get:
+      operationId: getPostsFeed
       tags:
         - Posts
       summary: Get posts feed
@@ -216,16 +249,39 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Post'
+              examples:
+                postsFeed:
+                  summary: Example of posts feed
+                  value:
+                    - id: "660e8400-e29b-41d4-a716-446655440000"
+                      authorId: "110e8400-e29b-41d4-a716-446655440001"
+                      text: "Beautiful sunset in Bali today!"
+                      photos:
+                        - id: "220e8400-e29b-41d4-a716-446655440002"
+                          link: "https://storage.travelers-network.com/photos/123.jpg"
+                      locationId: "8FWC2345+GG"
+                      score: 42
+                      commentsCount: 7
+                      createdAt: "2023-06-18T12:30:00Z"
+                      updatedAt: "2023-06-18T12:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 400
+                    message: "Invalid request parameters"
     post:
+      operationId: createPost
       tags:
         - Posts
       summary: Create a new post
+      description: When user want to create new post, he must pass text and photos, selected location and place (optional)
       requestBody:
         required: true
         content:
@@ -253,15 +309,32 @@ paths:
                       title:
                         type: string
                         description: photo title
-                        maxLength: 255              
-                locationLat:
-                  type: number
-                  format: float
-                locationLng:
-                  type: number
-                  format: float
-                locationName:
-                  type: string
+                        maxLength: 255
+                locationId:
+                  $ref: '#/components/schemas/locationId'
+                place:
+                  oneOf:
+                    - $ref: '#/components/schemas/Place'
+                      description: for new place creation
+                    - type: string
+                      format: uuid
+                      description: place identifier
+            examples:
+              createPostExample:
+                summary: Example of creating a new post
+                value:
+                  text: "Just visited this amazing place!"
+                  photos:
+                    - photo:
+                        id: "220e8400-e29b-41d4-a716-446655440002"
+                        link: "https://storage.travelers-network.com/photos/123.jpg"
+                      title: "Amazing view"
+                  locationId: "8FWC2345+GG"
+                  place:
+                    id: "330e8400-e29b-41d4-a716-446655440003"
+                    title: "Beach Paradise"
+                    description: "Beautiful beach with crystal clear water"
+                    currentLocationId: "8FWC2345+GG"
       responses:
         '201':
           description: Post created successfully
@@ -269,15 +342,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Post'
+              examples:
+                postCreated:
+                  summary: Example of created post
+                  value:
+                    id: "660e8400-e29b-41d4-a716-446655440000"
+                    authorId: "110e8400-e29b-41d4-a716-446655440001"
+                    text: "Just visited this amazing place!"
+                    photos:
+                      - id: "220e8400-e29b-41d4-a716-446655440002"
+                        link: "https://storage.travelers-network.com/photos/123.jpg"
+                    locationId: "8FWC2345+GG"
+                    score: 0
+                    commentsCount: 0
+                    createdAt: "2023-06-18T12:30:00Z"
+                    updatedAt: "2023-06-18T12:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 400
+                    message: "Invalid request parameters"
+                locationOccupied:
+                  summary: Error location occupied
+                  value:
+                    code: 400
+                    message: Passed location occupied another place
 
   /posts/{postId}:
     get:
+      operationId: getPostById
       tags:
         - Posts
       summary: Get post by ID
@@ -295,14 +395,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Post'
+              examples:
+                postDetails:
+                  summary: Example of post details
+                  value:
+                    id: "660e8400-e29b-41d4-a716-446655440000"
+                    authorId: "110e8400-e29b-41d4-a716-446655440001"
+                    text: "Beautiful sunset in Bali today!"
+                    photos:
+                      - id: "220e8400-e29b-41d4-a716-446655440002"
+                        link: "https://storage.travelers-network.com/photos/123.jpg"
+                    locationId: "8FWC2345+GG"
+                    score: 42
+                    commentsCount: 7
+                    createdAt: "2023-06-18T12:30:00Z"
+                    updatedAt: "2023-06-18T12:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Post not found"
 
     put:
+      operationId: updatePost
       tags:
         - Posts
       summary: Update post
@@ -329,6 +451,16 @@ paths:
                     format: uuid
                 location:
                   $ref: '#/components/schemas/Location'
+            examples:
+              updatePostExample:
+                summary: Example of updating a post
+                value:
+                  text: "Updated post text"
+                  photosToDelete:
+                    - "220e8400-e29b-41d4-a716-446655440002"
+                  location:
+                    id: "8FWC2345+GG"
+                    comment: "Uluwatu Temple, Bali"
       responses:
         '200':
           description: Post updated successfully
@@ -336,14 +468,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Post'
+              examples:
+                postUpdated:
+                  summary: Example of updated post
+                  value:
+                    id: "660e8400-e29b-41d4-a716-446655440000"
+                    authorId: "110e8400-e29b-41d4-a716-446655440001"
+                    text: "Updated post text"
+                    photos: []
+                    locationId: "8FWC2345+GG"
+                    score: 42
+                    commentsCount: 7
+                    createdAt: "2023-06-18T12:30:00Z"
+                    updatedAt: "2023-06-18T14:00:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Post not found"
 
     delete:
+      operationId: deletePost
       tags:
         - Posts
       summary: Delete post
@@ -363,9 +515,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Post not found"
 
   /posts/{postId}/comments:
     get:
+      operationId: getCommentsForPost
       tags:
         - Comments
       summary: Get comments for post
@@ -395,14 +554,31 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Comment'
+              examples:
+                commentsList:
+                  summary: Example of comments list
+                  value:
+                    - id: "440e8400-e29b-41d4-a716-446655440004"
+                      authorId: "110e8400-e29b-41d4-a716-446655440001"
+                      postId: "660e8400-e29b-41d4-a716-446655440000"
+                      text: "Looks amazing! When was this taken?"
+                      createdAt: "2023-06-18T13:00:00Z"
+                      updatedAt: "2023-06-18T13:00:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Post not found"
 
     post:
+      operationId: addCommentToPost
       tags:
         - Comments
       summary: Add comment to post
@@ -424,6 +600,11 @@ paths:
                   type: string
               required:
                 - text
+            examples:
+              addCommentExample:
+                summary: Example of adding a comment
+                value:
+                  text: "This looks amazing!"
       responses:
         '201':
           description: Comment added
@@ -431,15 +612,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Comment'
+              examples:
+                commentAdded:
+                  summary: Example of added comment
+                  value:
+                    id: "440e8400-e29b-41d4-a716-446655440004"
+                    authorId: "110e8400-e29b-41d4-a716-446655440001"
+                    postId: "660e8400-e29b-41d4-a716-446655440000"
+                    text: "This looks amazing!"
+                    createdAt: "2023-06-18T13:00:00Z"
+                    updatedAt: "2023-06-18T13:00:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Post not found"
 
   /comments/{commentId}:
     put:
+      operationId: updateComment
       tags:
         - Comments
       summary: Update comment
@@ -461,6 +659,11 @@ paths:
                   type: string
               required:
                 - text
+            examples:
+              updateCommentExample:
+                summary: Example of updating a comment
+                value:
+                  text: "This looks absolutely amazing!"
       responses:
         '200':
           description: Comment updated
@@ -468,14 +671,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Comment'
+              examples:
+                commentUpdated:
+                  summary: Example of updated comment
+                  value:
+                    id: "440e8400-e29b-41d4-a716-446655440004"
+                    authorId: "110e8400-e29b-41d4-a716-446655440001"
+                    postId: "660e8400-e29b-41d4-a716-446655440000"
+                    text: "This looks absolutely amazing!"
+                    createdAt: "2023-06-18T13:00:00Z"
+                    updatedAt: "2023-06-18T13:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Comment not found"
 
     delete:
+      operationId: deleteComment
       tags:
         - Comments
       summary: Delete comment
@@ -495,9 +715,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Comment not found"
 
   /posts/{postId}/scores:
     post:
+      operationId: ratePost
       tags:
         - Rating
       summary: Rate a post
@@ -519,6 +746,11 @@ paths:
                   type: integer
                   minimum: 0
                   maximum: 5
+            examples:
+              ratePostExample:
+                summary: Example of rating a post
+                value:
+                  score: 5
       responses:
         '201':
           description: Post rated
@@ -526,14 +758,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Rate'
+              examples:
+                postRated:
+                  summary: Example of rated post
+                  value:
+                    userId: "110e8400-e29b-41d4-a716-446655440001"
+                    postId: "660e8400-e29b-41d4-a716-446655440000"
+                    createdAt: "2023-06-18T13:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 400
+                    message: "Invalid score value"
 
     delete:
+      operationId: removePostRating
       tags:
         - Rating
       summary: Remove rate from post
@@ -553,9 +799,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Rating not found"
 
   /users/{userId}/subscriptions:
     post:
+      operationId: subscribeToUser
       tags:
         - Subscriptions
       summary: Subscribe to user
@@ -573,15 +826,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Subscription'
+              examples:
+                subscriptionCreated:
+                  summary: Example of subscription created
+                  value:
+                    subscriberId: "110e8400-e29b-41d4-a716-446655440001"
+                    targetUserId: "550e8400-e29b-41d4-a716-446655440005"
+                    createdAt: "2023-06-18T14:00:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 400
+                    message: "Invalid user ID"
   
   /users/{userId}/subscriptions/{travelerId}:
     delete:
+      operationId: unsubscribeFromUser
       tags:
         - Subscriptions
       summary: Unsubscribe from user
@@ -607,9 +874,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Subscription not found"
 
   /places:
     get:
+      operationId: getPopularPlaces
       tags:
         - Places
       summary: Get popular travel places
@@ -634,15 +908,33 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PopularPlace'
+              examples:
+                popularPlaces:
+                  summary: Example of popular places
+                  value:
+                    - place:
+                        id: "330e8400-e29b-41d4-a716-446655440003"
+                        title: "Beach Paradise"
+                        description: "Beautiful beach with crystal clear water"
+                        currentLocationId: "8FWC2345+GG"
+                      postsCount: 125
+                      lastPostedAt: "2023-06-18T12:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 400
+                    message: "Invalid period parameter"
 
   /places/{placeId}/posts:
     get:
+      operationId: getPostsForPlace
       tags:
         - Places
       summary: Get posts for a specific place
@@ -672,15 +964,113 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Post'
+              examples:
+                postsForPlace:
+                  summary: Example of posts for a place
+                  value:
+                    - id: "660e8400-e29b-41d4-a716-446655440000"
+                      authorId: "110e8400-e29b-41d4-a716-446655440001"
+                      text: "Beautiful sunset in Bali today!"
+                      photos:
+                        - id: "220e8400-e29b-41d4-a716-446655440002"
+                          link: "https://storage.travelers-network.com/photos/123.jpg"
+                      locationId: "8FWC2345+GG"
+                      score: 42
+                      commentsCount: 7
+                      createdAt: "2023-06-18T12:30:00Z"
+                      updatedAt: "2023-06-18T12:30:00Z"
         default:
           description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 404
+                    message: "Place not found"
+  
+  /places/search:
+    get:
+      operationId: searchPlaces
+      tags:
+        - Places
+      summary: Search for places by locationId with pagination
+      description: Search for places near a locationId with optional date filtering and pagination
+      parameters:
+        - name: locationId
+          in: query
+          required: true
+          description: Open Location Code to search for nearby places
+          schema:
+            type: string
+            pattern: '^[23456789CDFGHJMPQRVWX]{2,8}(\+[23456789CDFGHJMPQRVWX]{0,7})?$'
+          example: "8FWC2345+GG"
+        - name: date
+          in: query
+          required: false
+          description: ISO 8601 date for filtering places by time period (places that were at this location at the specified time)
+          schema:
+            type: string
+            format: date-time
+          example: "2023-06-18T12:30:00Z"
+        - name: limit
+          in: query
+          required: false
+          description: Number of places to return
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          description: Offset for pagination
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: List of places near the specified location, sorted by distance
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaceWithDistance'
+              examples:
+                placesSearchResult:
+                  summary: Example of places search result
+                  value:
+                    - id: "330e8400-e29b-41d4-a716-446655440003"
+                      title: "Beach Paradise"
+                      distance: 0.25
+                    - id: "440e8400-e29b-41d4-a716-446655440004"
+                      title: "Cafe Delight"
+                      distance: 1.2
+                    - id: "550e8400-e29b-41d4-a716-446655440005"
+                      title: "Historic Museum"
+                      distance: 2.5
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 400
+                    message: "Invalid locationId format"
   
   /media:
     post:
+      operationId: uploadMediaFiles
       tags:
         - Media
       summary: Upload multiple files
@@ -697,6 +1087,9 @@ paths:
                   items:
                     type: string
                     format: binary
+            encoding:
+              files:
+                contentType: image/jpeg, image/png, image/gif
       responses:
         '201':
           description: Files uploaded successfully
@@ -709,9 +1102,24 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Photo'
+                required:
+                  - files
+              examples:
+                mediaUploaded:
+                  summary: Example of uploaded media
+                  value:
+                    files:
+                      - id: "220e8400-e29b-41d4-a716-446655440002"
+                        link: "https://storage.travelers-network.com/photos/123.jpg"
         default:
           description: Payload too large
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                errorExample:
+                  summary: Example error response
+                  value:
+                    code: 413
+                    message: "File size exceeds maximum allowed size"

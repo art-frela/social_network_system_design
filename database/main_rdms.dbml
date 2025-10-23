@@ -1,8 +1,8 @@
 // users - store simple user profiles
 Table users {
-    id      uuid [pk]               // 16Byte
-    name            varchar(255)    // avg 48Byte
-    phone_number    varchar(16)     // 65Byte
+    id              uuid [pk]                    // 16Byte
+    name            varchar(255)                 // avg 48Byte
+    phone_number    varchar(16)                  // 65Byte
     created_at      timestamp [default: `now()`] // 8Byte
     Note: '1 rec = 137Byte'
 }
@@ -18,42 +18,69 @@ Table subscriptions {
 Ref: users.id < subscriptions.subscriber_id
 Ref: users.id < subscriptions.target_user_id
 
-// locations - reference of the intresting places
+// locations - reference of the physical locations on the planet that have geographic coordinates
 Table locations {
-    id          uuid [pk]    // 16Byte
-    name        varchar(255) // avg 48Byte
-    lat         float8       // 8Byte
-    lng         float8       // 8Byte
-    verified    bool         // 1Byte
-    Note: '1 rec = 81Byte'
+    id          varchar(11)  // 11Byte Open Location Code
+    comment     varchar(255) // avg 48Byte
+    creator_id  uuid [pk]    // 16Byte
+    created_at  timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 83Byte'
 }
+
+Ref: users.id < locations.creator_id
+
+// places - store intresting places
+Table places {
+    id                    uuid [pk]                    // 16Byte
+    current_location_id   varchar(11)                  // 11Byte
+    title                 varchar(255)                 // avg 48Byte
+    description           varchar(5000)                // avg 850Byte
+    creator_id            uuid                         // 16Byte
+    created_at            timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 949Byte'
+}
+
+Ref: users.id < places.creator_id
+Ref: locations.id < places.current_location_id
 
 // posts - store users's posts
 Table posts {
     id              uuid [pk]                    // 16Byte
     author_id       uuid                         // 16Byte
-    location_id     uuid                         // 16Byte
-    location_name   varchar(255)                 // avg 48Byte
+    location_id     varchar(11)                  // 11Byte
+    place_id        uuid                         // 16Byte
     content         varchar(5000)                // avg 2720Byte
+    photos          _uuid                        // avg 48Byte
     created_at      timestamp [default: `now()`] // 8Byte
-    Note: '1 rec = 2824Byte'
+    Note: '1 rec = 2835Byte'
 }
 
 Ref: users.id < posts.author_id
 Ref: locations.id < posts.location_id
+Ref: photos.id < posts.photos
+
+// photos - store users's posts's comments
+Table photos {
+    id             uuid [pk]                    // 16Byte
+    link           varchar(2048)                // avg 100Byte
+    location_id    varchar(11)                  // 11Byte
+    place_id       uuid                         // 16Byte
+    created_at     timestamp [default: `now()`] // 8Byte
+    Note: '1 rec = 151Byte'
+}
 
 // posts_comments - store users's posts's comments
 Table posts_comments {
-    id uuid [pk]                            // 16Byte
-    post_id uuid                            // 16Byte
-    author_id uuid                          // 16Byte
-    content varchar(800)                    // 560Byte
+    id         uuid [pk]                    // 16Byte
+    post_id    uuid                         // 16Byte
+    author_id  uuid                         // 16Byte
+    content    varchar(800)                 // 560Byte
     created_at timestamp [default: `now()`] // 8Byte
     Note: '1 rec = 616Byte'
 }
 
-Ref: users.id < post_comments.author_id
-Ref: posts.id < post_comments.post_id
+Ref: users.id < posts_comments.author_id
+Ref: posts.id < posts_comments.post_id
 
 // posts_scores - store post's rates
 Table posts_scores {
@@ -70,5 +97,5 @@ Ref: posts.id < posts_scores.post_id
 TableGroup posts {
   posts
   posts_scores
-  post_comments
+  posts_comments
 }
